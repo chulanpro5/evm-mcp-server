@@ -13,7 +13,7 @@ console.error(`Configured to listen on ${HOST}:${PORT}`);
 
 // Setup Express
 const app = express();
-app.use(express.json());
+// app.use(express.json());
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'OPTIONS'],
@@ -71,7 +71,7 @@ app.get("/sse", (req: Request, res: Response) => {
     // Create and store the transport keyed by session ID
     // Note: The path must match what the client expects (typically "/messages")
     const transport = new SSEServerTransport("/messages", res);
-    connections.set(sessionId, transport);
+    connections.set(transport.sessionId, transport);
     
     // Handle connection close
     req.on("close", () => {
