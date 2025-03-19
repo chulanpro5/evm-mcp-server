@@ -1193,4 +1193,54 @@ export function registerEVMTools(server: McpServer) {
       }
     }
   );
+
+    // Deploy a new ERC20 token
+    server.tool(
+      "deploy_token",
+      "Deploy a new ERC20 token contract with the specified name and symbol",
+      {
+        privateKey: z.string().describe("Private key of the sender account in hex format (with or without 0x prefix). SECURITY: This is used only for transaction signing and is not stored."),
+        name: z.string().describe("The name of the token (e.g., 'My Token')"),
+        symbol: z.string().describe("The symbol of the token (e.g., 'MTK')"),
+        decimals: z.number().optional().describe("The number of decimals for the token (default: 18)"),
+        totalSupply: z.number().optional().describe("The total supply of tokens in whole units (default: 100,000,000)"),
+        network: z.string().optional().describe("Network name (e.g., 'ethereum', 'optimism', 'arbitrum', 'base', etc.) or chain ID. Supports all EVM-compatible networks. Defaults to Ethereum mainnet.")
+      },
+      async ({ privateKey, name, symbol, decimals = 18, totalSupply = 100000000, network = "bsc-testnet" }) => {
+        try {
+          const result = await services.deployERC20Token(
+            privateKey as Hex,
+            name,
+            symbol,
+            decimals,
+            totalSupply,
+            network
+          );
+  
+          return {
+            content: [{
+              type: "text",
+              text: JSON.stringify({
+                success: true,
+                txHash: result.txHash,
+                contractAddress: result.contractAddress,
+                name,
+                symbol,
+                decimals,
+                totalSupply,
+                network
+              }, null, 2)
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{
+              type: "text",
+              text: `Error deploying token: ${error instanceof Error ? error.message : String(error)}`
+            }],
+            isError: true
+          };
+        }
+      }
+    );
 } 

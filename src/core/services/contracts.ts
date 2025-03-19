@@ -8,6 +8,56 @@ import {
 } from 'viem';
 import { getPublicClient, getWalletClient } from './clients.js';
 import { resolveAddress } from './ens.js';
+import { ERC20_ABI, ERC20_BYTECODE } from './constants.js';
+
+
+/**
+ * Deploy a new ERC20 token contract
+ * @param name Token name
+ * @param symbol Token symbol
+ * @param decimals Token decimals (default: 18)
+ * @param totalSupply Total supply in tokens (default: 100,000,000)
+ * @param network Network name or chain ID
+ * @returns Transaction hash and contract address
+ */
+export async function deployERC20Token(
+  privateKey: Hex,
+  name: string,
+  symbol: string,
+  decimals: number = 18,
+  totalSupply: number = 100000000,
+  network = 'bsc-testnet'
+): Promise<{ txHash: Hash; contractAddress: Address }> {
+  const client = getWalletClient(privateKey, network);
+
+  // Convert total supply to the correct number of decimals
+  // const totalSupplyWithDecimals = parseUnits(
+  //   totalSupply.toString(),
+  //   decimals
+  // );
+
+  // Deploy the contract
+  const txHash = await client.deployContract({
+    abi: ERC20_ABI,
+    bytecode: ERC20_BYTECODE,
+    args: [name, symbol, decimals, totalSupply],
+    account: client.account!,
+    chain: client.chain
+  });
+
+  // Wait for the transaction to be mined to get the contract address
+  const publicClient = getPublicClient(network);
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+  if (!receipt.contractAddress) {
+    throw new Error('Contract deployment failed: No contract address in receipt');
+  }
+
+  return {
+    txHash,
+    contractAddress: receipt.contractAddress
+  };
+}
 
 /**
  * Read from a contract for a specific network
