@@ -76,7 +76,7 @@ app.get("/sse", (req: Request, res: Response) => {
     // Handle connection close
     req.on("close", () => {
       console.error(`SSE connection closed for session: ${sessionId}`);
-      connections.delete(sessionId);
+      connections.delete(transport.sessionId);
     });
     
     // Connect transport to server - this must happen before sending any data
