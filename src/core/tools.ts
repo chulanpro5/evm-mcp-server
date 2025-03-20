@@ -4,6 +4,7 @@ import { getSupportedNetworks, getRpcUrl } from "./chains.js";
 import * as services from "./services/index.js";
 import { type Address, type Hex, type Hash } from 'viem';
 import { normalize } from 'viem/ens';
+import { registerWalletTools } from "./wallet-tools.js";
 
 /**
  * Register all EVM-related tools with the MCP server
@@ -14,6 +15,9 @@ import { normalize } from 'viem/ens';
  * @param server The MCP server instance
  */
 export function registerEVMTools(server: McpServer) {
+  // Register wallet tools
+  registerWalletTools(server);
+
   // NETWORK INFORMATION TOOLS
   
   // Get chain information

@@ -8,7 +8,7 @@ import {
 } from 'viem';
 import { getPublicClient, getWalletClient } from './clients.js';
 import { resolveAddress } from './ens.js';
-import { ERC20_ABI, ERC20_BYTECODE } from './constants.js';
+import { ERC20_ABI, ERC20_BYTECODE } from '../constants/erc20.js';
 
 
 /**
