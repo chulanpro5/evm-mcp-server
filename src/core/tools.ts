@@ -2,9 +2,17 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { getSupportedNetworks, getRpcUrl } from './chains.js';
 import * as services from './services/index.js';
-import { type Address, type Hex, type Hash } from 'viem';
+import {
+  type Address,
+  type Hex,
+  type Hash,
+  zeroAddress,
+  parseEther
+} from 'viem';
 import { normalize } from 'viem/ens';
 import { registerWalletTools } from './wallet-tools.js';
+import { routerService } from './services/router.js';
+import { LOCK_CONTRACT_ADDRESS } from './constants/contract.js';
 
 /**
  * Register all EVM-related tools with the MCP server
@@ -2107,6 +2115,302 @@ export function registerEVMTools(server: McpServer) {
             {
               type: 'text',
               text: `Error enabling trading: ${error instanceof Error ? error.message : String(error)}`
+            }
+          ],
+          isError: true
+        };
+      }
+    }
+  );
+
+  server.tool(
+    'add_liquidity',
+    'Add ETH and token liquidity to create or increase a Uniswap/PancakeSwap liquidity pool position',
+    {
+      privateKey: z
+        .string()
+        .describe(
+          'Private key of the sender account in hex format (with or without 0x prefix). SECURITY: This is used only for transaction signing and is not stored.'
+        ),
+      tokenAddress: z
+        .string()
+        .describe('The ERC20 token contract address to pair with ETH'),
+      amountToken: z
+        .string()
+        .describe('Amount of tokens to add as liquidity (in token units)'),
+      amountETH: z
+        .string()
+        .describe('Amount of ETH to add as liquidity (in ETH units)'),
+      dexRouter: z
+        .string()
+        .describe('DEX router contract address for liquidity pair creation'),
+      slippage: z
+        .number()
+        .optional()
+        .describe('Maximum allowed slippage percentage (default: 0.5)'),
+      network: z
+        .string()
+        .optional()
+        .describe(
+          "Network name (e.g., 'bsc', etc.) or chain ID. Defaults to BSC."
+        )
+    },
+    async ({
+      privateKey,
+      tokenAddress,
+      dexRouter,
+      amountToken,
+      amountETH,
+      slippage = 0.5,
+      network = 'bsc'
+    }) => {
+      try {
+        // Get wallet private key
+        const txHash = await routerService.addLiquidityETH(
+          privateKey as Hex,
+          tokenAddress,
+          amountToken,
+          amountETH,
+          slippage,
+          dexRouter,
+          network
+        );
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  success: true,
+                  network,
+                  transactionHash: txHash,
+                  tokenAddress,
+                  amountToken,
+                  amountETH,
+                  message: 'Successfully added liquidity to PancakeSwap pool'
+                },
+                null,
+                2
+              )
+            }
+          ]
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error adding liquidity: ${error instanceof Error ? error.message : String(error)}`
+            }
+          ],
+          isError: true
+        };
+      }
+    }
+  );
+
+  server.tool(
+    'enable_trading',
+    'Enable trading for a tax token contract with specified parameters',
+    {
+      privateKey: z
+        .string()
+        .describe(
+          'Private key of the sender account in hex format (with or without 0x prefix). SECURITY: This is used only for transaction signing and is not stored.'
+        ),
+      contractAddress: z
+        .string()
+        .describe('The address of the tax token contract'),
+      maxHolder: z
+        .string()
+        .describe(
+          'Maximum amount of tokens a wallet can hold (in token units)'
+        ),
+      maxBuy: z
+        .string()
+        .describe(
+          'Maximum amount of tokens that can be bought in a single transaction (in token units)'
+        ),
+      swapAtAmount: z
+        .string()
+        .describe('Amount of tokens that triggers a swap (in token units)'),
+      network: z
+        .string()
+        .optional()
+        .describe(
+          "Network name (e.g., 'bsc', 'ethereum', etc.) or chain ID. Defaults to BSC."
+        )
+    },
+    async ({
+      privateKey,
+      contractAddress,
+      maxHolder,
+      maxBuy,
+      swapAtAmount,
+      network = 'bsc'
+    }) => {
+      try {
+        // Verify the wallet exists
+        const txHash = await services.enableTrading(
+          privateKey as Hex,
+          contractAddress,
+          maxHolder,
+          maxBuy,
+          swapAtAmount,
+          network
+        );
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  success: true,
+                  network,
+                  transactionHash: txHash,
+                  contractAddress,
+                  maxHolder,
+                  maxBuy,
+                  swapAtAmount
+                },
+                null,
+                2
+              )
+            }
+          ]
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error enabling trading: ${error instanceof Error ? error.message : String(error)}`
+            }
+          ],
+          isError: true
+        };
+      }
+    }
+  );
+
+  server.tool(
+    'lock_lp_token',
+    'Lock LP tokens in the UniswapV2Lock contract to demonstrate locked liquidity',
+    {
+      privateKey: z
+        .string()
+        .describe(
+          'Private key of the sender account in hex format (with or without 0x prefix). SECURITY: This is used only for transaction signing and is not stored.'
+        ),
+      lpTokenAddress: z.string().describe('The LP token address to lock'),
+      amount: z
+        .string()
+        .describe('Amount of LP tokens to lock (in LP token units)'),
+      unlockDate: z
+        .number()
+        .describe('Unix timestamp when tokens can be unlocked'),
+      network: z
+        .string()
+        .optional()
+        .describe(
+          "Network name (e.g., 'bsc', 'ethereum', etc.) or chain ID. Defaults to BSC."
+        )
+    },
+    async ({
+      privateKey,
+      lpTokenAddress,
+      amount,
+      unlockDate,
+      network = 'bsc'
+    }) => {
+      try {
+        // Get public address from private key
+        const formattedKey = privateKey.startsWith('0x')
+          ? (privateKey as `0x${string}`)
+          : (`0x${privateKey}` as `0x${string}`);
+
+        const address = services.getAddressFromPrivateKey(formattedKey);
+
+        // Prepare args for lockLPToken function
+        const args = [
+          lpTokenAddress,
+          amount,
+          unlockDate,
+          zeroAddress, // Referral address
+          true, // Fee in ETH
+          address // If no withdrawer specified, use sender address
+        ];
+
+        const contractParams = {
+          address: LOCK_CONTRACT_ADDRESS as Address,
+          abi: [
+            {
+              inputs: [
+                { internalType: 'address', name: '_lpToken', type: 'address' },
+                { internalType: 'uint256', name: '_amount', type: 'uint256' },
+                {
+                  internalType: 'uint256',
+                  name: '_unlock_date',
+                  type: 'uint256'
+                },
+                {
+                  internalType: 'address payable',
+                  name: '_referral',
+                  type: 'address'
+                },
+                { internalType: 'bool', name: '_fee_in_eth', type: 'bool' },
+                {
+                  internalType: 'address payable',
+                  name: '_withdrawer',
+                  type: 'address'
+                }
+              ],
+              name: 'lockLPToken',
+              outputs: [],
+              stateMutability: 'payable',
+              type: 'function'
+            }
+          ],
+          functionName: 'lockLPToken',
+          args,
+          value: parseEther('0.2') // Send 0.2 ETH as fee
+        };
+
+        const txHash = await services.writeContractWithStoredWallet(
+          privateKey as Hex,
+          contractParams,
+          network
+        );
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  success: true,
+                  network,
+                  transactionHash: txHash,
+                  lpTokenAddress,
+                  amount,
+                  unlockDate,
+                  message:
+                    'Successfully locked LP tokens in UniswapV2Lock contract'
+                },
+                null,
+                2
+              )
+            }
+          ]
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error locking LP tokens: ${error instanceof Error ? error.message : String(error)}`
             }
           ],
           isError: true

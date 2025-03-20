@@ -1,0 +1,3 @@
+const LOCK_CONTRACT_ADDRESS = '0xc765bddb93b0d1c1a88282ba0fa6b2d00e3e0c83';
+
+export { LOCK_CONTRACT_ADDRESS };

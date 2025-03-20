@@ -253,6 +253,18 @@ export async function enableTrading(
 }
 
 /**
+ * Write to a contract for a specific network using a stored wallet
+ */
+export async function writeContractWithStoredWallet(
+  privKey: Hex,
+  params: Record<string, any>,
+  network = 'bsc'
+): Promise<Hash> {
+  const client = await getWalletClient(privKey, network);
+  return await client.writeContract(params as any);
+}
+
+/**
  * Read from a contract for a specific network
  */
 export async function readContract(
