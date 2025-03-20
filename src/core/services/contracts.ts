@@ -6,7 +6,8 @@ import {
   type GetLogsParameters,
   type Log,
   parseUnits,
-  zeroAddress
+  zeroAddress,
+  getContract
 } from 'viem';
 import { getPublicClient, getWalletClient } from './clients.js';
 import { resolveAddress } from './ens.js';
@@ -14,7 +15,8 @@ import {
   ERC20_ABI,
   ERC20_BYTECODE,
   ERC20_TAX_ABI,
-  ERC20_TAX_BYTECODE
+  ERC20_TAX_BYTECODE,
+  erc20InfoAbi
 } from '../constants/erc20.js';
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -188,6 +190,65 @@ export async function setSwapAndLiquifyEnabled(
     ],
     functionName: 'setSwapAndLiquifyEnabled',
     args: [enabled]
+  });
+}
+
+export async function enableTrading(
+  privateKey: Hex,
+  tokenAddress: string,
+  maxHolder: string,
+  maxBuy: string,
+  swapAtAmount: string,
+  network = 'bsc'
+): Promise<Hash> {
+  const client = await getWalletClient(privateKey, network);
+  // Get token details
+  const publicClient = getPublicClient(network);
+  const contract = getContract({
+    address: tokenAddress as `0x${string}`,
+    abi: erc20InfoAbi,
+    client: publicClient
+  });
+
+  // Get token decimals and symbol
+  const decimals = await contract.read.decimals();
+
+  // Parse the amount with the correct number of decimals
+  const rawMaxHolder = parseUnits(maxHolder, decimals);
+  const rawMaxBuy = parseUnits(maxBuy, decimals);
+  const rawSwapAtAmount = parseUnits(swapAtAmount, decimals);
+
+  return await client.writeContract({
+    address: tokenAddress as `0x${string}`,
+    chain: client.chain,
+    account: client.account!,
+    abi: [
+      {
+        inputs: [
+          {
+            internalType: 'uint256',
+            name: '_maxHolder',
+            type: 'uint256'
+          },
+          {
+            internalType: 'uint256',
+            name: 'maxBuy',
+            type: 'uint256'
+          },
+          {
+            internalType: 'uint256',
+            name: '_swapAtAmt',
+            type: 'uint256'
+          }
+        ],
+        name: 'enableTrading',
+        outputs: [],
+        stateMutability: 'nonpayable',
+        type: 'function'
+      }
+    ],
+    functionName: 'enableTrading',
+    args: [rawMaxHolder, rawMaxBuy, rawSwapAtAmount]
   });
 }
 
